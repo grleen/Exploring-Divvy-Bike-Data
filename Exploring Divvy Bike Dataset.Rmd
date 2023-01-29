@@ -1,0 +1,232 @@
+---
+title: "HS 650 Final Project"
+subtitle: |
+      Fall 2022, DSPA (HS650) \
+      
+      Name: Gurleen Kaur \
+      
+      SID: 4200 \
+      
+      UMich E-mail: kgurleen@umich.edu \
+      
+      I certify that the following paper represents my own independent work and conforms with the guidelines of academic honesty described in the UMich student handbook.
+      
+output: 
+  html_document: 
+    theme: cosmo
+    highlight: zenburn
+    toc: yes
+    toc_float: true
+---
+
+# **Exploring Chicago's Divvy Bike Trip Data (2014-2017)**
+#### ***Abstract***
+Over this summer, while interning with the Chicago Metropolitan Agency for Planning, taking a Divvy bike was one of my preferred modes of transportation to get to my office and for exploring the city's beautiful lake shore on occasions. Divvy Bikes, a bicycle sharing system owned by the Chicago Department of Transportation and  have been an [immensely successful](https://chi.streetsblog.org/2021/09/24/the-reward-for-expansion-and-electrification-of-divvy-is-record-breaking-ridership/) all over Chicago and the ridership has risen significantly over the years. Through this data analytic study, I have attempted to analyze the Divvy Bike Trips Data acquired from the [Kaggle](https://www.kaggle.com/datasets/yingwurenjian/chicago-divvy-bicycle-sharing-data) and look for trends and patterns in ridership and predict whether trip duration is dependent on user type, weather conditions, user gender and weekday through multiple linear regression. The results indicate that there is a statistical significance between trip duration and the input variables with the p-values being infinitesimally small and a good F-Statistic score. However, the model does not predict trip duration correctly and returns large errors. 
+
+#### ***Introduction***
+For this study, I have used the Kaggle data set and not the one directly from the [Chicago Open Data Portal](https://data.cityofchicago.org/Transportation/Divvy-Trips/fg6s-gzvg) as it attached with the weather data on each day of the respective trips which allows for further exploration. The initial sections of the project present some preliminary plots to look at the overall ridership patterns. There has been a significant rise in ridership over the years from 2014-2017 and most of the people opting for Divvy bikes to commute are subscribers as opposed to casual riders. Also, the proportion of male riders is higher as compared to females. Overall, most of the trips are pretty short with the highest number of trips averaging to around five minutes. Additionally, rides are concentrated around early mornings and late afternoons-early evenings. ***With these observable patterns I hypothesize that the trip duration is dependent on a few variables, which are if the user is a subscriber/customer/dependent, their gender, the temperature on that day, the day of the week and the overall weather on the day of the ride.*** I use multiple linear regression to fit a model on the training data and predict the trip duration using this model on the test data. I then compute the mean error to see whether trip durations are actually dependent on the above mentioned variables. The results, however, indicate the opposite and there is not a very strong correlation between these variables and the model does not predict trip durations correctly. 
+
+## **Exploratory Data Analysis**
+This sections contains some preliminary visualizations pertaining to the data set to see patterns within it. 
+
+### **Loading the data**
+```{r, warning=F, message=FALSE}
+library(tidyverse)
+library(dplyr)
+library(plotly)
+library(ggplot2)
+library(tidyr)
+library(leaflet)
+
+divvy_data <- read.csv("C:/Users/gurle/Downloads/data.csv/data.csv")
+```
+
+```{r, warning=F}
+head(divvy_data) # Taking a look at the first few rows
+```
+
+```{r, warning=F}
+str(divvy_data) #Examining the structure of the data
+```
+
+### **Trends in Ridership (2014-2017)**
+The plot below depicts how Divvy Bike ridership has changed over the years. It is observable that ridership has significantly increased year-by-year. One plausible reason for this could be the gradual exapnsion of the bike network all across the metropolitan region over time. 
+```{r, warning=F}
+number_of_rides <- divvy_data %>% group_by(year) %>% tally()
+
+plot_ly(number_of_rides, x=~year, y=~n, type = "bar") %>% layout(title = "Change in Divvy Bike Ridership from 2014-2017")
+```
+
+### **Distribution of User Type**
+The code below creates a separate data frame with the number of different user types - consumers, dependents, subscribers. 
+```{r, warning=F}
+subs_data <- divvy_data %>% group_by(usertype, year) %>% tally()
+subs_data
+```
+Here, we can see that the subscribers have increased substantially over the years and customers and dependents have always remained drastically low. It can be observed that the people of Chicago do prefer to have a subscription of Divvy Bike rather than renting them occassionally without one. 
+```{r, warning=F}
+plot_ly(subs_data, x=~year, y=~n, color=~usertype, type="bar") %>% layout(title = "Distribution of User Type")
+```
+
+### **Bike Rentals by Gender**
+The plot below shows that the proportion of male riders is higher than that of female riders.
+```{r, warning=F}
+gender <- divvy_data %>% group_by(gender) %>% tally()
+
+plot_ly(gender, x=~gender, y=~n, type="bar") %>% layout(title = "Bike Rentals by Gender")
+```
+
+### **Trip Duration**
+Here, I have created a histogram showing the distribution of trip durations. It is evident that longer trips are less frequent and most trips are averaging at arounf 5-6 minutes.
+```{r, warning=F}
+#plot_ly(x=divvy_data$tripduration, type="histogram") %>% layout(title = "Histogram of Trip Duration")
+```
+
+### **Bike Rentals by the Hour of the Day**
+It is evident that rides are frequent during early morning hours and late afternoon and early evening hours. This trend can be attributed to people communting to and fro from their work places during these times. 
+```{r, warning=F}
+plot_ly(x=divvy_data$hour, type="histogram") %>% layout(title = "Histogram of Bike Rentals by the Hour of the Day")
+```
+
+### **Number of Trips by the Day of the Week**
+A similar pattern is observable across all weekdays pertaining to the number of rides and weekends experience a lower number of rides overall. It would not be wrong to conclude that bike rides are a popular mode of trasnport to get to work for the people of Chicago.
+```{r, warning=F}
+day_data <- divvy_data %>% group_by(day) %>% tally()
+day_data$day <- c("Monday", "Tuesday", "Wednesay", "Thursday", "Friday", "Saturday", "Sunday")
+
+plot_ly(day_data, x=~day, y=~n, type="bar") %>% layout(title = "Distribution of Bike Rides Across the Days of a Week")
+```
+
+### **Number of Trips by Month**
+Evidently, summer months experience a higher number of rides as compared to winter months.
+```{r, warning=F}
+month_data <- divvy_data %>% group_by(month) %>% tally()
+month_data$month <- c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+
+plot_ly(month_data, x=~month, y=~n) %>% layout(title = "Distribution of Trips by Month")
+```
+
+### **Popular Stations**
+Here, I have tried to look at what stations are the most popular in terms of starting a bike ride, meaning from which stations do people pick up a bike the most.
+```{r, warning=F}
+station_data <- divvy_data %>% group_by(from_station_name) %>% tally()
+station_data <- station_data[order(station_data$n, decreasing = TRUE), ] 
+
+plot_ly(station_data, x=~from_station_name, y=~n, type="bar") %>% layout(title = "Popular Bike Pick-Up Stations")
+```
+The above plot is a bit haphazard, so I sorted the dataset in descending order to get the stations with the most pick-ups and filtered the first 50 rows. It can be seen that Clinton St & Washinton Blv is the most popular pick-up spot. Another important observation is that all the stations in this 50-row dataset are located in the downtown Chicago. 
+```{r, warning=F}
+station_data_new <- station_data[1:50, ]
+plot_ly(station_data_new, x=~from_station_name, y=~n, type="bar") %>% layout(title = "Popular Bike Pick-Up Stations")
+```
+
+### **Mapping Pick-Up Stations**
+The map below shows the bike stations and the higher the number of concentric circles around a pick-up location, the more number of trips are generated from that station. Here also, it is very evident that most of the trips are generated in and around the downtown area of Chicago.
+```{r, warning=F}
+start_of_trips<-divvy_data %>% 
+  select(from_station_name,Latitude=latitude_start,Longitude=longitude_start)%>%
+group_by(from_station_name,Longitude,Latitude)%>%
+dplyr::summarize(fs=n())
+
+lg<-mean(start_of_trips$Longitude)
+lt<-mean(start_of_trips$Latitude)
+
+pal <- c("pink")
+
+leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
+    addCircleMarkers(data=start_of_trips,lng = ~Longitude, lat = ~Latitude,
+                     color = pal,
+                     opacity = 0.5,
+                     label = ~from_station_name,
+                     radius= ~sqrt(fs*0.001))
+```
+
+## **Multiple Linear Regression**
+Now, that some data visualization has been conducted to look at ridership patterns, I have chosen to apply a prediction method on the dataset. This section of the project uses multiple linear regression to predict whether trip duration is dependent on the variables such as user status (consumer/subscriber/dependent), gender,  and the temperature and weather on the trip day. Here, I use the `lm()` function from the `stats` library to fit a linear model on the above mentioned variables.  
+### **Factorizing the `weather`, `gender` and `usertype`` variables**
+```{r, warning=F}
+divvy_data$event1 <- as.numeric((as.factor(divvy_data$events)))
+
+divvy_data$gender_1 <- as.numeric((as.factor(divvy_data$gender)))
+
+divvy_data$user_1 <- as.numeric((as.factor(divvy_data$usertype)))
+
+```
+
+### **Creating a data frame**
+Here, I have created a separate data frame with the input and output variables for the regression model. 
+```{r, warning=F}
+data_filtered <- select(divvy_data, c("user_1", "gender_1", "temperature", "day", "latitude_start", "longitude_start", "event1", "tripduration")) #creating a separate data frame for analysis
+
+#### In the initial versions of trying out the linear regression model, I also used the location coordinates as one of the input variables, however, I removed them in the final model. I also tried to normalize the data to see whether it would result in better predictions.
+
+#### Here, I am still keeping the function I created for normalizing the data and also the normalized data frame from which I generated a correlation matrix.
+norm_minmax <- function(x){
+(x- min(x)) /(max(x)-min(x))
+        }
+
+df_norm <- as.data.frame(lapply(data_filtered, norm_minmax))
+```
+
+### **Correlation Matrix**
+I generated this correlation matrix to see if any of the input variables have a correlation between them. But it turns out that only a small correlation is observable between some variables like `temperature` and `tripduration`, and `gender` and `tripduration`. There is also some correlation between `latitude_start` and `day` which could mean that a certain weekday is a factor in determining from where the trip will start. Essentially, this points towards the co-dependence of workdays and work locations in the city.
+```{r, warning=F}
+library(corrplot)
+
+norm_matrix <- cor(df_norm)
+corrplot(norm_matrix, method = "circle")
+```
+
+### **Splitting the data into testing and training data**
+For training the model, I am not using the normalized data, as during initial runs it the model was not returning a very desirable prediction. 
+```{r, warning=F, message=FALSE}
+library(caTools)
+
+set.seed(1)
+sample <- sample.split(data_filtered, SplitRatio = 0.7)
+train_df  <- subset(data_filtered, sample == TRUE)    #Using "data_filtered"
+test_df   <- subset(data_filtered, sample == FALSE)
+```
+
+### **Training the model**
+Here, the trip duration is the output variable and the rest are input variables. 
+```{r, warning=F}
+model <- lm(tripduration ~ user_1 + gender_1 + temperature + day +event1, data = train_df)
+
+summary(model)
+```
+
+### **Residual R-squared**
+Computing the residual r-squared
+```{r, warning=F}
+sigma(model)/mean(train_df$tripduration)
+```
+
+### **Running the model on test data**
+Here, I run the model on test data and predict the trip durations. I also compute the error between the original values the preidcted values.
+```{r, warning=F}
+test_df$predicted_trip_duration <- predict(model, select(test_df, c("user_1", "gender_1", "temperature", "day", "event1")))
+
+test_df$error <- abs((test_df$predicted_trip_duration - test_df$tripduration)/test_df$tripduration)
+```
+
+Computing the mean of errors.
+```{r, warning=F}
+mean(test_df$error)*100
+```
+
+#### ***Results and Discussion***
+The summary of the linear regression model returns some interesting results. The t-value is highest for the variable `temperature` which means that there is a relation between the temperature and the trip duration and the weather on that day might affect how long a ride would be. Also, the p-values in this model are lower than 0.05 and are tending towards 0, so it means that there is some statistical significance between the input variables and the trip duration. However, these p-values are very small, and this could be because of the large amount of data. 
+
+Additionally, the residual error (7.102) is pretty low, which means that the predicted values are quite close to the original ones for the trip duration minutes. Next, the F-statistic is very large and the p-values is almost negligible that makes the hypothesis true that indeed trip duration is dependent of factors like user type, gender, temperature, day of the week, and weather.
+
+Here, the error in prediction is quite significant. This could mean that the model did show statistical significance between the input and output variables, however, it was not able to predict trip duration correctly.
+
+Further research can be conducted on a smaller subset of data to improve the predictions. 
+
+#### **References**
+[Divvy Bike Trips Dataset, Kaggle](https://www.kaggle.com/code/devisangeetha/divvy-bike-share-eda-network-analysis/report)
+[Understanding Linear Regression Output in R](https://towardsdatascience.com/understanding-linear-regression-output-in-r-7a9cbda948b3)
+[Leaflet for R](https://rstudio.github.io/leaflet/)
+[Bikeshare rolls into Chi-Town, spreading transportation bliss](https://grist.org/cities/bikeshare-rolls-into-chi-town-spreading-transportation-bliss/)
+[Exploratory Data Analysis of Cyclisitc Co.](https://rpubs.com/Akhelaaditya/798955)
